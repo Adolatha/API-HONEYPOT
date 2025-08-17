@@ -1,0 +1,113 @@
+# app/db_decoy.py
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
+from .config import DECOY_DATABASE_URL
+
+decoy_engine = create_async_engine(
+    DECOY_DATABASE_URL, echo=False, future=True
+)
+AsyncDecoySession = sessionmaker(
+    decoy_engine, class_=AsyncSession, expire_on_commit=False
+)
+DecoyBase = declarative_base()
+
+async def init_decoy_db():
+    async with decoy_engine.begin() as conn:
+        # Recreate schema on startup
+        await conn.run_sync(DecoyBase.metadata.drop_all)
+        await conn.run_sync(DecoyBase.metadata.create_all)
+        # Seed data
+        await conn.run_sync(seed_dummy_data)
+
+def seed_dummy_data(sync_conn):
+    from faker import Faker
+    fake = Faker()
+    from .decoy_models import (
+        DecoyUser, DecoyCreditCard, DecoyBankAccount,
+        DecoyPayroll, DecoyAPIKey, DecoySecret, DecoyContract
+    )
+
+    # Insert 200 users
+    for _ in range(200):
+        sync_conn.execute(
+            DecoyUser.__table__.insert().values(
+                full_name=fake.name(),
+                email=fake.safe_email(),
+                ssn=fake.ssn(),
+                hashed_password=fake.password(length=12),
+                last_login=fake.date_time_this_year(),
+                two_fa_secret=fake.sha256(),
+            )
+        )
+
+    # Insert 300 credit cards
+    for _ in range(300):
+        sync_conn.execute(
+            DecoyCreditCard.__table__.insert().values(
+                user_id=fake.random_int(1, 200),
+                card_number=fake.credit_card_number(),
+                expiry=fake.credit_card_expire(),
+                cvv=fake.credit_card_security_code(),
+                billing_address=fake.address().replace("\n", ", "),
+            )
+        )
+
+    # Insert 200 bank accounts
+  for _ in range(200):
+               sync_conn.execute(
+                    DecoyBankAccount.__table__.insert().values(
+                        user_id=fake.random_int(1, 200),
+                        account_number=fake.bban(),
+                        routing_number=fake.routing_number(),        # ← invalid
+                        balance=fake.random_number(digits=6),
+                        account_type=fake.random_element(["checking", "savings", "loan"]),
+                    )
+                )
+
+    # Insert 200 payroll entries
+    for _ in range(200):
+        sync_conn.execute(
+            DecoyPayroll.__table__.insert().values(
+                user_id=fake.random_int(1, 200),
+                salary=fake.random_int(30000, 150000),
+                bonus=fake.random_int(0, 20000),
+                tax_withheld=fake.random_int(5000, 30000),
+                pay_date=fake.date_this_year(),
+            )
+        )
+
+    # Insert API keys
+    for svc in ["stripe", "sendgrid", "twilio", "aws", "gcp", "azure"]:
+        sync_conn.execute(
+            DecoyAPIKey.__table__.insert().values(
+                service=svc,
+                key_plaintext=fake.sha256(),
+                created_at=fake.date_time_this_year(),
+                expires_at=fake.date_time_between(start_date="now", end_date="+30d"),
+            )
+        )
+
+    # Insert secrets
+    for _ in range(100):
+        sync_conn.execute(
+            DecoySecret.__table__.insert().values(
+                name=fake.word().upper(),
+                value=fake.sha256(),
+                classification=fake.random_element(["CONFIDENTIAL", "SECRET", "TOP_SECRET"]),
+                last_modified=fake.date_time_this_year(),
+            )
+        )
+
+    # Insert contracts
+    for _ in range(50):
+        sync_conn.execute(
+            DecoyContract.__table__.insert().values(
+                title=fake.catch_phrase(),
+                party_a=fake.company(),
+                party_b=fake.company(),
+                content_snippet=fake.text(max_nb_chars=100),
+                signed_on=fake.date_this_year(),
+            )
+        )
+

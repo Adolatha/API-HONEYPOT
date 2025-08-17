@@ -1,0 +1,26 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env
+
+# SQLite database
+*.db
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+
+# Logs and uploads
+logs/
+honey_tokens/
+
+# Editor/project files
+*.swp
+*.swo
+.idea/
+.vscode/
