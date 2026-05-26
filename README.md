@@ -1,4 +1,4 @@
-# README Honeypot project - Resit
+# README Honeypot project
 A secure, interactive web honeypot environment designed to attract, analyze, and log malicious activities. The honeypot simulates realistic web application endpoints and includes a decoy database to entice attackers, capturing meaningful security logs for analysis.
 
 ## Overview
